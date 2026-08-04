@@ -1,0 +1,248 @@
+# Day 36 – TryHackMe Firewall Fundamentals
+
+## Room Details
+
+- **Platform:** TryHackMe
+- **Learning path:** Cyber Security 101 → Security Solutions
+- **Room:** Firewall Fundamentals
+- **Day:** 36
+- **Status:** Completed (100%)
+
+## Learning Objectives
+
+- Explain how a firewall controls incoming and outgoing traffic.
+- Distinguish common firewall types and deployment locations.
+- Read a firewall rule using its direction, addresses, protocol, ports, and action.
+- Understand why rule order and default policy matter.
+- Inspect and manage rules with Windows Defender Firewall.
+- Inspect and manage Linux firewall rules with `iptables`.
+- Interpret firewall evidence from a SOC analyst's perspective.
+
+## What Is a Firewall?
+
+A firewall is a security control that inspects network traffic and decides whether to allow or block it according to configured rules. It can protect an individual host, a network boundary, or a cloud environment.
+
+A simplified decision is:
+
+```text
+Traffic → Firewall rule evaluation → Allow / Drop / Reject
+```
+
+A firewall reduces exposure, but it does not prove that allowed traffic is safe. Analysts still need logs and supporting endpoint, identity, application, and network evidence.
+
+## Common Firewall Types
+
+| Type | Main behaviour |
+|---|---|
+| **Packet-filtering firewall** | Checks fields such as source/destination IP, protocol, and port. |
+| **Stateful firewall** | Tracks active connections and makes decisions using connection state. |
+| **Stateless firewall** | Evaluates each packet independently against the rule set. |
+| **Proxy firewall** | Intermediates traffic between a client and destination and can inspect application-layer requests. |
+| **Next-generation firewall (NGFW)** | Adds features such as application awareness, deeper inspection, IDS/IPS, and threat-intelligence integration. |
+| **Host-based firewall** | Runs on an endpoint or server and controls traffic for that device. |
+| **Network-based firewall** | Protects traffic moving between networks or security zones. |
+
+## Firewall Rule Components
+
+A firewall rule normally answers:
+
+```text
+Direction:   Is the traffic inbound, outbound, or forwarded?
+Source:      Where did it originate?
+Destination: Where is it going?
+Protocol:    Is it TCP, UDP, ICMP, or another protocol?
+Port:        Which service is involved?
+Action:      Should the traffic be allowed, dropped, or rejected?
+Reason:      What business or security requirement justifies the rule?
+```
+
+Example:
+
+```text
+Direction: Inbound
+Source: Trusted administration subnet
+Destination: Managed Linux server
+Protocol: TCP
+Port: 22
+Action: Allow
+Reason: Permit approved SSH administration
+```
+
+This is a generic example and is not copied from the room's lab.
+
+## Important Rule Concepts
+
+### Inbound and Outbound Traffic
+
+- **Inbound:** Traffic entering a host or protected network.
+- **Outbound:** Traffic leaving a host or protected network.
+- **Forwarded:** Traffic passing through a firewall between different networks.
+
+Controlling outbound traffic matters because malware, data-exfiltration activity, and unauthorized tools may initiate connections from inside the network.
+
+### Allow, Drop, and Reject
+
+| Action | Result |
+|---|---|
+| **Allow / Accept** | Permits matching traffic. |
+| **Drop** | Silently discards matching traffic. |
+| **Reject** | Blocks matching traffic and returns an error response when supported. |
+
+### Rule Order
+
+Many firewall systems process rules from top to bottom. The first applicable rule can decide the result, so a broad allow rule placed before a restrictive rule may unintentionally bypass the intended control.
+
+### Default Policy
+
+A default policy determines what happens when no explicit rule matches. A least-privilege approach generally allows only required traffic and blocks everything else, but changes must be planned carefully to avoid disrupting legitimate access.
+
+## Windows Defender Firewall
+
+Windows Defender Firewall provides host-based filtering for Windows systems. Rules can be applied to three network profiles:
+
+- **Domain:** The system is connected to an authenticated organizational domain network.
+- **Private:** A trusted private network.
+- **Public:** An untrusted network, such as public Wi-Fi.
+
+Useful areas to review include:
+
+- Inbound Rules
+- Outbound Rules
+- Rule status and action
+- Protocol and local/remote ports
+- Local and remote addresses
+- Applied profile
+- Program or service scope
+
+Read-only PowerShell checks include:
+
+```powershell
+Get-NetFirewallProfile
+Get-NetFirewallRule -Enabled True
+```
+
+An analyst should verify the active profile and the rule's complete scope instead of relying only on its display name.
+
+## Linux `iptables`
+
+`iptables` manages packet-filtering rules through tables and chains. The commonly discussed built-in filter chains are:
+
+| Chain | Traffic handled |
+|---|---|
+| **INPUT** | Traffic destined for the local system. |
+| **OUTPUT** | Traffic generated by the local system. |
+| **FORWARD** | Traffic routed through the system to another destination. |
+
+A safe inspection command is:
+
+```bash
+sudo iptables -L -n -v --line-numbers
+```
+
+The options provide:
+
+- `-L`: List rules.
+- `-n`: Show numeric addresses and ports without name resolution.
+- `-v`: Display additional details and counters.
+- `--line-numbers`: Show each rule's position in its chain.
+
+Important fields to interpret include:
+
+- Chain policy
+- Rule number
+- Packet and byte counters
+- Target such as `ACCEPT`, `DROP`, or `REJECT`
+- Protocol
+- Source and destination
+- Match conditions such as interfaces, connection state, or ports
+
+## Safe Firewall Workflow
+
+Before changing a firewall:
+
+1. Identify the required traffic and its business purpose.
+2. Record the current firewall state and rule order.
+3. Confirm direction, source, destination, protocol, and port.
+4. Check whether an existing rule already covers the requirement.
+5. Consider how the change could affect active administration or production services.
+6. Apply the narrowest required rule through an approved change process.
+7. Test both permitted and blocked traffic.
+8. Review logs and counters to verify the result.
+9. Document the change and rollback method.
+
+Remote firewall changes can lock out an administrator. Production changes should therefore use an authorized maintenance and recovery plan.
+
+## Guided Lab Takeaways
+
+The room reinforced a practical comparison between Windows and Linux host firewalls:
+
+- Windows rules can be organized by direction, profile, program, service, protocol, port, and address scope.
+- Linux `iptables` rules are evaluated within chains such as `INPUT`, `OUTPUT`, and `FORWARD`.
+- A rule must be interpreted together with its chain or direction, order, default policy, and counters.
+- Testing is required to confirm whether intended traffic is actually permitted or blocked.
+- Firewall logs and rule hits provide useful evidence, but they must be correlated with other security telemetry.
+
+## SOC Investigation Workflow
+
+When reviewing firewall activity:
+
+1. Establish the alert time and firewall time zone.
+2. Identify the source IP, destination IP, protocol, source port, and destination port.
+3. Determine whether the action was allowed, dropped, or rejected.
+4. Identify the matching rule, interface, security zone, and device.
+5. Check the frequency and pattern of similar connections.
+6. Pivot to DNS, proxy, IDS/IPS, VPN, authentication, endpoint, and server logs.
+7. Determine whether the activity was expected, misconfigured, suspicious, or confirmed malicious.
+8. Document the evidence, uncertainty, and next action.
+
+## Practical Reporting Model
+
+Every practical should end with:
+
+```text
+What I checked:
+The firewall, active profile or chain, rule order, policy, traffic fields, and counters reviewed.
+
+What I found:
+The matching rule and whether the traffic was allowed, dropped, or rejected.
+
+What it means:
+The evidence-supported security or connectivity interpretation.
+
+What I would do next:
+The next log source, validation test, rule review, escalation, or approved change required.
+```
+
+## Mistakes to Avoid
+
+- Assuming a firewall automatically makes allowed traffic trustworthy.
+- Confusing inbound, outbound, and forwarded traffic.
+- Ignoring rule order or the default policy.
+- Creating overly broad rules such as unrestricted sources or ports.
+- Changing remote-access rules without a tested recovery path.
+- Treating a dropped packet as proof of a successful attack.
+- Ignoring outbound connections and possible exfiltration.
+- Publishing lab credentials, answers, targets, flags, or raw sensitive output.
+
+## Retention Checks
+
+- Explain the purpose of a firewall.
+- Distinguish host-based and network-based firewalls.
+- Distinguish stateful and stateless filtering.
+- Name the main components of a firewall rule.
+- Explain the difference between `DROP` and `REJECT`.
+- Explain why rule order and default policy matter.
+- Name the Windows firewall profiles.
+- Explain the `INPUT`, `OUTPUT`, and `FORWARD` chains.
+- Interpret `sudo iptables -L -n -v --line-numbers`.
+- State what you checked, found, concluded, and would do next.
+
+## Evidence Boundary
+
+This note records concepts and methods learned in a guided TryHackMe room. It does not claim production firewall-administration or SOC experience. Lab answers, credentials, target details, flags, and raw output are intentionally excluded.
+
+## Status
+
+- TryHackMe room: **Completed – 100%**
+- Portfolio note: **Prepared**
+- Experience boundary: **Guided lab learning only**
